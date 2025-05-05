@@ -1,12 +1,16 @@
+require('dotenv').config();
+
 const express = require('express');
 const mongoose = require('mongoose');
 const session = require('express-session');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const cookieParser = require('cookie-parser');
+const MongoStore = require('connect-mongo'); 
+
 const app = express();
 
-const JWT_SECRET = 'yourJWTSecretKey';
+const JWT_SECRET = process.env.JWT_SECRET;
 const SALT_ROUNDS = 10;
 
 app.set('view engine', 'ejs');
@@ -16,19 +20,27 @@ app.use(express.json());
 app.use(cookieParser());
 
 app.use(session({
-    secret: 'yourVerySecretKey',
+    secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
     cookie: {
         httpOnly: true,
-        secure: false,
+        secure: process.env.NODE_ENV === 'production',  
         sameSite: 'strict'
-    }
+    },
+    store: MongoStore.create({
+        mongoUrl: process.env.MONGO_URI, 
+        collectionName: 'sessions' 
+    })
 }));
 
-mongoose.connect("mongodb://localhost:27017/secrets", {
+mongoose.connect(process.env.MONGO_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true
+}).then(() => {
+    console.log("Connected to MongoDB Atlas");
+}).catch((err) => {
+    console.error("MongoDB connection error:", err);
 });
 
 const userSchema = new mongoose.Schema({
@@ -161,8 +173,7 @@ app.get('/logout', (req, res) => {
     res.redirect('/login');
 });
 
+const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {
     console.log(`Server started on port ${PORT}`);
 });
-
-
